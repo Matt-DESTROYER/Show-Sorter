@@ -8,7 +8,7 @@ class FormatTokenType(Enum):
 	"""Type of token in the format string."""
 	NONE     = 0
 	VARIABLE = 1
-	OTHER    = 2
+	DEFAULT    = 2
 
 
 class FormatToken:
@@ -19,17 +19,6 @@ class FormatToken:
 
 	def __repr__(self: Self) -> str:
 		return f"FormatToken(type={self.type.name}, value='{self.value}')"
-
-
-"""
-class TVShow:
-	def __init__(self: Self, filepath: str) -> None:
-		self.filepath = filepath
-		self.show    = None
-		self.title   = None
-		self.episode = None
-		self.season  = None
-"""
 
 
 class NameScheme:
@@ -67,13 +56,10 @@ class NameScheme:
 			if token_type == FormatTokenType.NONE:
 				if input_format[i] == "<" and \
 					(i == 0 or input_format[i - 1] != "\\"):
-					if i > 0 and input_format[i - 1] == ">":
-						raise ValueError("Invalid format: cannot have two variables with no characters separating them.")
-
 					token_type = FormatTokenType.VARIABLE
 					token = ""
 				else:
-					token_type = FormatTokenType.OTHER
+					token_type = FormatTokenType.DEFAULT
 					token = input_format[i]
 
 			elif token_type == FormatTokenType.VARIABLE:
@@ -85,11 +71,11 @@ class NameScheme:
 				else:
 					token += input_format[i]
 
-			elif token_type == FormatTokenType.OTHER:
+			elif token_type == FormatTokenType.DEFAULT:
 				if input_format[i] == "<" and \
 					(i == 0 or input_format[i - 1] != "\\"):
 					token_type = FormatTokenType.VARIABLE
-					self.input_format.append(FormatToken(FormatTokenType.OTHER, token))
+					self.input_format.append(FormatToken(FormatTokenType.DEFAULT, token))
 					token = ""
 				else:
 					token += input_format[i]
@@ -97,8 +83,8 @@ class NameScheme:
 		if token != "":
 			if token_type == FormatTokenType.VARIABLE:
 				raise ValueError("Invalid format: variable not closed with '>'.")
-			elif token_type == FormatTokenType.OTHER:
-				self.input_format.append(FormatToken(FormatTokenType.OTHER, token))
+			elif token_type == FormatTokenType.DEFAULT:
+				self.input_format.append(FormatToken(FormatTokenType.DEFAULT, token))
 		
 		token_type = FormatTokenType.NONE
 		token = ""
@@ -111,7 +97,7 @@ class NameScheme:
 					token_type = FormatTokenType.VARIABLE
 					token = ""
 				else:
-					token_type = FormatTokenType.OTHER
+					token_type = FormatTokenType.DEFAULT
 					token = output_format[i]
 
 			elif token_type == FormatTokenType.VARIABLE:
@@ -124,11 +110,11 @@ class NameScheme:
 				else:
 					token += output_format[i]
 
-			elif token_type == FormatTokenType.OTHER:
+			elif token_type == FormatTokenType.DEFAULT:
 				if output_format[i] == "<" and \
 					(i == 0 or output_format[i - 1] != "\\"):
 					token_type = FormatTokenType.VARIABLE
-					self.output_format.append(FormatToken(FormatTokenType.OTHER, token))
+					self.output_format.append(FormatToken(FormatTokenType.DEFAULT, token))
 					token = ""
 				else:
 					token += output_format[i]
@@ -151,7 +137,7 @@ class NameScheme:
 					extracting = ""
 					if i == len(self.input_format) - 1:
 						variable_values[self.input_format[i].value] = file[index:]
-				elif self.input_format[i].type == FormatTokenType.OTHER:
+				elif self.input_format[i].type == FormatTokenType.DEFAULT:
 					index += len(self.input_format[i].value)
 
 			elif extracting_type == FormatTokenType.VARIABLE:
@@ -165,7 +151,7 @@ class NameScheme:
 				index += len(next_match)
 				extracting = ""
 
-			elif extracting_type == FormatTokenType.OTHER:
+			elif extracting_type == FormatTokenType.DEFAULT:
 				index += len(self.input_format[i].value)
 
 		# return the reformatted file
@@ -174,18 +160,14 @@ class NameScheme:
 			if self.output_format[i].type == FormatTokenType.VARIABLE:
 				reformatted += variable_values[self.output_format[i].value]
 
-			elif self.output_format[i].type == FormatTokenType.OTHER:
+			elif self.output_format[i].type == FormatTokenType.DEFAULT:
 				reformatted += self.output_format[i].value
 
-		return reformatted + extension
+		return reformatted.replace("\\<", "<") + extension
 
-
-"""
-Format for format file:
-<VARIABLE_NAME>
-"""
 
 if __name__ == "__main__":
+	# just a basic filter for video files
 	FILE_EXTENSIONS: tuple[str, ...] = (".mp4", ".m4v", ".mov", ".qt", ".avi", ".wmv", ".mkv", ".webm", ".flv", ".f4v", ".3gp", ".3g2", ".mpg", ".mpeg", ".m2v", ".ts", ".m2ts", ".mts", ".vob", ".rm", ".rmvb", ".ogv", ".mxf")
 
 	current_directory = path.dirname(path.abspath(__file__))
@@ -194,8 +176,8 @@ if __name__ == "__main__":
 	if path.exists(path.join(current_directory, "name-scheme.format")):
 		formatter.load_format(path.join(current_directory, "name-scheme.format"))
 	else:
-		input_format: str = input("Enter input format (e.g. <show> - <season>x<episode> - <title>): ")
-		output_format: str = input("Enter output format (e.g. <show> - <season>x<episode> - <title>): ")
+		input_format: str = input("Enter input format (e.g. \"<show> - <season>x<episode> - <title>\"): ")
+		output_format: str = input("Enter output format (e.g. \"<show>/Season <season>/<episode> - <title>\"): ")
 
 		with open(path.join(current_directory, "name-scheme.format"), "w") as file:
 			file.write(f"{input_format}\n{output_format}")
